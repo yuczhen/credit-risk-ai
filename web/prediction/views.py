@@ -235,9 +235,16 @@ def login_view(request):
     error = False
     if request.method == "POST":
         password = request.POST.get("password", "")
-        access_pw = getattr(settings, "DPM_ACCESS_PASSWORD", "dpm2026")
-        if password == access_pw:
+        demo_pw = getattr(settings, "DPM_ACCESS_PASSWORD", "dpm2026")
+        full_pw = getattr(settings, "DPM_FULL_PASSWORD", "")
+        if full_pw and password == full_pw:
             request.session["authenticated"] = True
+            request.session["access_level"] = "full"
+            request.session["lang"] = request.POST.get("lang", "zh")
+            return redirect("prediction:prediction_page")
+        elif password == demo_pw:
+            request.session["authenticated"] = True
+            request.session["access_level"] = "demo"
             request.session["lang"] = request.POST.get("lang", "zh")
             return redirect("prediction:prediction_page")
         error = True
@@ -385,6 +392,29 @@ def upload_predict(request):
             "若為回頭客，缺少逾期欄位將顯著影響預測準確度。\n\n"
             + "\n".join(warning_lines)
         )
+
+    # ── Demo 模式筆數限制 ──
+    DEMO_ROW_LIMIT = 10
+    access_level = request.session.get("access_level", "demo")
+    if access_level != "full" and len(df) > DEMO_ROW_LIMIT:
+        lang = request.session.get("lang", "zh")
+        if lang == "en":
+            limit_msg = (
+                f"Demo mode supports up to {DEMO_ROW_LIMIT} records per upload. "
+                f"Your file contains {len(df)} records. "
+                f"Please contact us for full-access credentials if you need batch predictions at scale."
+            )
+        else:
+            limit_msg = (
+                f"Demo 模式每次最多上傳 {DEMO_ROW_LIMIT} 筆，您的檔案共有 {len(df)} 筆。\n"
+                f"如需批次大量預測，請聯絡管理員取得完整授權帳號。"
+            )
+        return render(request, "prediction/prediction_page.html", {
+            "form": PredictionForm(),
+            "result_json": "null",
+            "error_msg": limit_msg,
+            "session_lang": lang,
+        })
 
     # Translate English categorical values → Chinese for model processing
     lang = request.session.get("lang", "zh")

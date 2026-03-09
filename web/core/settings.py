@@ -86,5 +86,7 @@ X_FRAME_OPTIONS = "ALLOWALL"
 
 # ── 密碼保護 ──
 DPM_ACCESS_PASSWORD = os.environ.get("DPM_ACCESS_PASSWORD", "dpm2026")
+# 完整授權密碼：使用此密碼登入可上傳無限筆批次資料
+DPM_FULL_PASSWORD = os.environ.get("DPM_FULL_PASSWORD", "")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
