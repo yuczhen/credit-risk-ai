@@ -183,7 +183,7 @@
       <span></span><span></span><span></span>
     </div>
 
-    <p class="hint">正在連接風險評估引擎，即將跳轉…</p>
+    <p class="hint" id="hint">正在喚醒風險評估引擎…</p>
 
     <a class="btn"
        href="https://celtic29-yc-default-predictor.hf.space/login/"
@@ -192,21 +192,63 @@
   </div>
 
   <script>
-    const TARGET = 'https://celtic29-yc-default-predictor.hf.space/login/';
+    const TARGET  = 'https://celtic29-yc-default-predictor.hf.space/login/';
     const countEl = document.getElementById('count');
-    let n = 3;
+    const hintEl  = document.getElementById('hint');
 
-    // Wake up HF Space immediately in the background
-    fetch(TARGET, { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+    const MSGS = [
+      '正在喚醒風險評估引擎…',
+      '模型載入中，請稍候…',
+      '初次啟動約需 20–30 秒，感謝耐心等待…',
+      '即將就緒，馬上跳轉…',
+    ];
+    const MAX_WAIT  = 30000;  // 最多等 30 秒
+    const MIN_WAIT  =  5000;  // 最少等 5 秒（避免太快跳轉）
+    const POLL_INT  =  3000;  // 每 3 秒 ping 一次
+    const start     = Date.now();
+    let   elapsed   = 0;
+    let   redirected = false;
 
-    const tick = setInterval(() => {
-      n--;
-      countEl.textContent = n;
-      if (n <= 0) {
-        clearInterval(tick);
-        window.location.href = TARGET;
-      }
+    function doRedirect() {
+      if (redirected) return;
+      redirected = true;
+      window.location.href = TARGET;
+    }
+
+    // Update hint message as time passes
+    setInterval(() => {
+      elapsed = Date.now() - start;
+      const idx = Math.min(Math.floor(elapsed / 7000), MSGS.length - 1);
+      hintEl.textContent = MSGS[idx];
+      // Update ring countdown display (counts up to show progress)
+      const pct = Math.min(elapsed / MAX_WAIT, 1);
+      countEl.textContent = Math.ceil((MAX_WAIT - elapsed) / 1000);
     }, 1000);
+
+    // Poll HF Space — redirect as soon as it responds (or after MIN_WAIT)
+    function ping() {
+      fetch(TARGET, { mode: 'no-cors', cache: 'no-store' })
+        .then(() => {
+          const waited = Date.now() - start;
+          const remaining = Math.max(MIN_WAIT - waited, 0);
+          setTimeout(doRedirect, remaining);
+        })
+        .catch(() => {
+          // Still waking up — retry unless max wait exceeded
+          const waited = Date.now() - start;
+          if (waited < MAX_WAIT) {
+            setTimeout(ping, POLL_INT);
+          } else {
+            doRedirect(); // Give up waiting, try anyway
+          }
+        });
+    }
+
+    // Force redirect after MAX_WAIT regardless
+    setTimeout(doRedirect, MAX_WAIT);
+
+    // Start pinging after 2 s
+    setTimeout(ping, 2000);
   </script>
 
 </body>
