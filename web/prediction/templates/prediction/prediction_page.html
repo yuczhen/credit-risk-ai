@@ -356,8 +356,8 @@
 
     <!-- ═══ 錯誤訊息 ═══ -->
     {% if error_msg %}
-    <div class="mt-6 bg-red-50 border border-red-200 rounded-xl p-5 text-red-700 text-sm">
-      <strong>Error:</strong> {{ error_msg }}
+    <div class="mt-6 bg-red-50 border border-red-200 rounded-xl p-5 text-red-700 text-sm whitespace-pre-line leading-relaxed">
+      {{ error_msg }}
     </div>
     {% endif %}
 
@@ -413,6 +413,7 @@
         <input type="hidden" name="lang" id="uploadLang" value="{{ session_lang|default:'zh' }}">
         <div class="p-6 space-y-4">
           <p class="text-gray-600 text-sm" data-i18n="modal.desc">上傳包含多位客戶資料的 Excel / CSV 檔案，系統將批次執行預測並產出結果。</p>
+          <p class="text-xs text-blue-500 bg-blue-50 rounded-lg px-3 py-2" data-i18n="modal.lang_note">💡 預測結果將以目前顯示語言（中文）輸出，欄位名稱請使用英文格式。</p>
 
           <!-- 拖曳上傳區 -->
           <div id="dropZone" class="border-2 border-dashed border-sunset-200 rounded-xl p-8 text-center hover:border-sunset-400 transition-colors cursor-pointer">
@@ -601,6 +602,7 @@
         "modal.required": "必填欄位（缺少將無法預測）：",
         "modal.optional": "選填欄位（缺少時預設為 0，但會影響準確度）：",
         "btn.template": "下載範本",
+        "modal.lang_note": "💡 預測結果將以目前顯示語言（中文）輸出，欄位名稱請使用英文格式。",
         "modal.tip1": "下載範本：",
         "modal.tmpl_zh": "中文範本",
         "modal.tmpl_en": "EN Template",
@@ -679,6 +681,7 @@
         "modal.required": "Required fields (prediction will fail without these):",
         "modal.optional": "Optional fields (defaults to 0 if missing, affects accuracy):",
         "btn.template": "Download Template",
+        "modal.lang_note": "💡 Results will be output in the current display language (English). Column names must use English format.",
         "modal.tip1": "Download Template:",
         "modal.tmpl_zh": "ZH Template",
         "modal.tmpl_en": "EN Template",

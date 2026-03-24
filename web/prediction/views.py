@@ -370,19 +370,21 @@ def upload_predict(request):
     if missing_critical:
         lang = request.session.get("lang", "zh")
         missing_str = "、".join(missing_critical)
+        bullet_missing = "\n".join(f"  • {c}" for c in missing_critical)
+        found_cols = ", ".join(df.columns.tolist())
         if lang == "en":
             error_msg = (
-                f"The uploaded file is missing {len(missing_critical)} required column(s):\n"
-                f"{', '.join(missing_critical)}\n\n"
-                f"Columns found in your file: {', '.join(df.columns.tolist())}\n\n"
-                f"Please download the template and ensure all required columns are present."
+                f"⚠ Upload failed — {len(missing_critical)} required column(s) not found:\n"
+                f"{bullet_missing}\n\n"
+                f"Columns detected in your file:\n  {found_cols}\n\n"
+                f"Please download the template and re-upload with all required columns."
             )
         else:
             error_msg = (
-                f"上傳的檔案缺少以下【必填】欄位（共 {len(missing_critical)} 個）：\n"
-                f"{missing_str}\n\n"
-                f"檔案現有欄位：{', '.join(df.columns.tolist())}\n\n"
-                f"請下載範本檔案，確認所有必填欄位皆已填寫後重新上傳。"
+                f"⚠ 上傳失敗 — 缺少 {len(missing_critical)} 個必填欄位：\n"
+                f"{bullet_missing}\n\n"
+                f"您的檔案現有欄位：\n  {found_cols}\n\n"
+                f"請下載範本檔案，補齊所有必填欄位後重新上傳。"
             )
         return render(request, "prediction/prediction_page.html", {
             "form": PredictionForm(),
