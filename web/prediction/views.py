@@ -439,6 +439,42 @@ def upload_predict(request):
     lang = request.POST.get("lang", request.session.get("lang", "zh"))
     request.session["lang"] = lang
 
+    # ── Language mismatch detection (before translation) ──
+    # If ZH interface but file has English categorical values → block and prompt
+    ZH_CATEGORICAL_VALUES = set(EN_TO_ZH.values())
+    if lang == "zh":
+        en_detected = any(
+            df[col].apply(lambda v: pd.notna(v) and str(v).strip() in EN_TO_ZH).any()
+            for col in EN_CATEGORICAL_COLS if col in df.columns
+        )
+        if en_detected:
+            return render(request, "prediction/prediction_page.html", {
+                "form": PredictionForm(),
+                "result_json": "null",
+                "error_msg": (
+                    "⚠ 偵測到您上傳的檔案為英文格式（分類欄位含英文值）。\n\n"
+                    "目前介面語言為【中文】，請下載【中文範本】填寫後重新上傳，\n"
+                    "或切換至英文介面後再上傳英文格式檔案。"
+                ),
+                "session_lang": lang,
+            })
+    elif lang == "en":
+        zh_detected = any(
+            df[col].apply(lambda v: pd.notna(v) and str(v).strip() in ZH_CATEGORICAL_VALUES).any()
+            for col in EN_CATEGORICAL_COLS if col in df.columns
+        )
+        if zh_detected:
+            return render(request, "prediction/prediction_page.html", {
+                "form": PredictionForm(),
+                "result_json": "null",
+                "error_msg": (
+                    "⚠ The uploaded file appears to be in Chinese format (categorical fields contain Chinese values).\n\n"
+                    "Your current interface is set to English. Please download the English template and re-upload,\n"
+                    "or switch to the Chinese interface to upload a Chinese format file."
+                ),
+                "session_lang": lang,
+            })
+
     # Translate English categorical values → Chinese for model processing
     for col in EN_CATEGORICAL_COLS:
         if col in df.columns:
