@@ -450,8 +450,23 @@
                 <tr class="border-b border-gray-100"><td class="py-1 font-mono text-sunset-700">number of overdue in the fifth month</td><td class="field-desc">第5月逾期次數</td><td class="text-amber-600 field-opt">選填</td></tr>
                 <tr><td class="py-1 font-mono text-sunset-700">number of overdue in the sixth month</td><td class="field-desc">第6月逾期次數</td><td class="text-amber-600 field-opt">選填</td></tr>
               </table>
-              <p class="mt-2 text-gray-400" data-i18n="modal.tip1">提示：可下載範本檔案做為填寫參考。</p>
-              <p class="text-amber-600" data-i18n="modal.tip2">逾期欄位為 SHAP 特徵重要性最高的來源（合計貢獻 &gt;80%），回頭客強烈建議提供。新客戶可省略（預設 0）。</p>
+              <!-- Download Template Buttons -->
+              <div class="mt-3 flex flex-wrap gap-2 items-center">
+                <span class="text-gray-400 text-xs" data-i18n="modal.tip1">下載範本：</span>
+                <a href="{% url 'prediction:download_template' %}?lang=zh"
+                   class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-sunset-50 border border-sunset-200 text-sunset-700 text-xs font-medium hover:bg-sunset-100 transition-colors"
+                   download>
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  <span data-i18n="modal.tmpl_zh">中文範本</span>
+                </a>
+                <a href="{% url 'prediction:download_template' %}?lang=en"
+                   class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors"
+                   download>
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  <span data-i18n="modal.tmpl_en">EN Template</span>
+                </a>
+              </div>
+              <p class="mt-1 text-amber-600" data-i18n="modal.tip2">逾期欄位為 SHAP 特徵重要性最高的來源（合計貢獻 &gt;80%），回頭客強烈建議提供。新客戶可省略（預設 0）。</p>
             </div>
           </details>
         </div>
@@ -580,7 +595,9 @@
         "modal.field_info": "欄位說明（點擊展開）",
         "modal.required": "必填欄位（缺少將無法預測）：",
         "modal.optional": "選填欄位（缺少時預設為 0，但會影響準確度）：",
-        "modal.tip1": "提示：可下載範本檔案做為填寫參考。",
+        "modal.tip1": "下載範本：",
+        "modal.tmpl_zh": "中文範本",
+        "modal.tmpl_en": "EN Template",
         "modal.tip2": "逾期欄位為 SHAP 特徵重要性最高的來源（合計貢獻 >80%），回頭客強烈建議提供。新客戶可省略（預設 0）。",
         "modal.cancel": "取消",
         "modal.submit": "開始批次預測",
@@ -655,7 +672,9 @@
         "modal.field_info": "Field descriptions (click to expand)",
         "modal.required": "Required fields (prediction will fail without these):",
         "modal.optional": "Optional fields (defaults to 0 if missing, affects accuracy):",
-        "modal.tip1": "Tip: Download the template file for reference.",
+        "modal.tip1": "Download Template:",
+        "modal.tmpl_zh": "ZH Template",
+        "modal.tmpl_en": "EN Template",
         "modal.tip2": "Overdue fields are the most important SHAP features (>80% contribution). Strongly recommended for returning clients. New clients may omit (defaults to 0).",
         "modal.cancel": "Cancel",
         "modal.submit": "Start Batch Prediction",

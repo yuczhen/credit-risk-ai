@@ -368,16 +368,27 @@ def upload_predict(request):
     # 1) 必填欄位：缺少 → 擋下
     missing_critical = [col for col in CRITICAL_COLUMNS if col not in df.columns]
     if missing_critical:
+        lang = request.session.get("lang", "zh")
         missing_str = "、".join(missing_critical)
+        if lang == "en":
+            error_msg = (
+                f"The uploaded file is missing {len(missing_critical)} required column(s):\n"
+                f"{', '.join(missing_critical)}\n\n"
+                f"Columns found in your file: {', '.join(df.columns.tolist())}\n\n"
+                f"Please download the template and ensure all required columns are present."
+            )
+        else:
+            error_msg = (
+                f"上傳的檔案缺少以下【必填】欄位（共 {len(missing_critical)} 個）：\n"
+                f"{missing_str}\n\n"
+                f"檔案現有欄位：{', '.join(df.columns.tolist())}\n\n"
+                f"請下載範本檔案，確認所有必填欄位皆已填寫後重新上傳。"
+            )
         return render(request, "prediction/prediction_page.html", {
             "form": PredictionForm(),
             "result_json": "null",
-            "error_msg": (
-                f"上傳的檔案缺少以下【必填】欄位（共 {len(missing_critical)} 個）：\n"
-                f"{missing_str}\n\n"
-                f"檔案現有欄位：{', '.join(df.columns.tolist())}"
-            ),
-            "session_lang": request.session.get("lang", "zh"),
+            "error_msg": error_msg,
+            "session_lang": lang,
         })
 
     # 2) 選填欄位：缺少 → 填預設值 + 記錄警告
@@ -791,4 +802,200 @@ def download_excel(request):
     response["Content-Disposition"] = (
         f'attachment; filename="prediction_report_{timestamp.replace(":", "").replace(" ", "_")}.xlsx"'
     )
+    return response
+
+
+def download_template(request):
+    """下載批次預測範本 Excel（中英雙語版）。"""
+    from io import BytesIO
+
+    import openpyxl
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    lang = request.GET.get("lang", request.session.get("lang", "zh"))
+    is_zh = lang == "zh"
+
+    # ── 欄位順序（以使用者直覺順序排列，非 SHAP 順序）──
+    TEMPLATE_COLS = [
+        "education",
+        "month salary",
+        "job tenure",
+        "residence status",
+        "main business",
+        "product",
+        "loan term",
+        "paid installments",
+        "post code of permanent address",
+        "post code of residential address",
+        "debt_to_income_ratio",
+        "payment_to_income_ratio",
+        "number of overdue before the first month",
+        "number of overdue in the first half of the first month",
+        "number of overdue in the second half of the first month",
+        "number of overdue in the second month",
+        "number of overdue in the third month",
+        "number of overdue in the fourth month",
+        "number of overdue in the fifth month",
+        "number of overdue in the sixth month",
+    ]
+
+    REQUIRED_SET = set(CRITICAL_COLUMNS)
+
+    # 欄位中文說明
+    ZH_DESC = {
+        "education":                                              ("教育程度", "Graduate / University / High School"),
+        "month salary":                                           ("月薪（元）", "數字，例如：50000"),
+        "job tenure":                                             ("工作年資（年）", "數字，例如：3.5"),
+        "residence status":                                       ("居住狀態", "Owned / Rented / Family / Mortgage"),
+        "main business":                                          ("行業別", "Finance / Retail / Tech / Manufacturing / Service / Others"),
+        "product":                                                ("借款目的", "Personal Loan / Credit Card / Car Loan"),
+        "loan term":                                              ("貸款期數（月）", "整數，例如：24"),
+        "paid installments":                                      ("已繳期數", "整數，例如：6"),
+        "post code of permanent address":                         ("戶籍郵遞區號", "數字，例如：100"),
+        "post code of residential address":                       ("居住郵遞區號", "數字，例如：235"),
+        "debt_to_income_ratio":                                   ("負債收入比", "0–1 之間，例如：0.35"),
+        "payment_to_income_ratio":                                ("還款收入比", "0–1 之間，例如：0.20"),
+        "number of overdue before the first month":               ("第1月前逾期次數", "整數，新客戶填 0"),
+        "number of overdue in the first half of the first month": ("第1月上半逾期次數", "整數，新客戶填 0"),
+        "number of overdue in the second half of the first month":("第1月下半逾期次數", "整數，新客戶填 0"),
+        "number of overdue in the second month":                  ("第2月逾期次數", "整數，新客戶填 0"),
+        "number of overdue in the third month":                   ("第3月逾期次數", "整數，新客戶填 0"),
+        "number of overdue in the fourth month":                  ("第4月逾期次數", "整數，新客戶填 0"),
+        "number of overdue in the fifth month":                   ("第5月逾期次數", "整數，新客戶填 0"),
+        "number of overdue in the sixth month":                   ("第6月逾期次數", "整數，新客戶填 0"),
+    }
+
+    EN_DESC = {
+        "education":                                              ("Education Level", "Graduate / University / High School"),
+        "month salary":                                           ("Monthly Salary", "Number, e.g. 50000"),
+        "job tenure":                                             ("Job Tenure (yrs)", "Number, e.g. 3.5"),
+        "residence status":                                       ("Residence Status", "Owned / Rented / Family / Mortgage"),
+        "main business":                                          ("Industry", "Finance / Retail / Tech / Manufacturing / Service / Others"),
+        "product":                                                ("Loan Purpose", "Personal Loan / Credit Card / Car Loan"),
+        "loan term":                                              ("Loan Term (months)", "Integer, e.g. 24"),
+        "paid installments":                                      ("Paid Installments", "Integer, e.g. 6"),
+        "post code of permanent address":                         ("Perm. Address Postal Code", "Number, e.g. 100"),
+        "post code of residential address":                       ("Res. Address Postal Code", "Number, e.g. 235"),
+        "debt_to_income_ratio":                                   ("Debt-to-Income Ratio", "0–1, e.g. 0.35"),
+        "payment_to_income_ratio":                                ("Payment-to-Income Ratio", "0–1, e.g. 0.20"),
+        "number of overdue before the first month":               ("Overdue Count Before Month 1", "Integer, 0 for new clients"),
+        "number of overdue in the first half of the first month": ("Overdue Count Month 1 First Half", "Integer, 0 for new clients"),
+        "number of overdue in the second half of the first month":("Overdue Count Month 1 Second Half", "Integer, 0 for new clients"),
+        "number of overdue in the second month":                  ("Overdue Count Month 2", "Integer, 0 for new clients"),
+        "number of overdue in the third month":                   ("Overdue Count Month 3", "Integer, 0 for new clients"),
+        "number of overdue in the fourth month":                  ("Overdue Count Month 4", "Integer, 0 for new clients"),
+        "number of overdue in the fifth month":                   ("Overdue Count Month 5", "Integer, 0 for new clients"),
+        "number of overdue in the sixth month":                   ("Overdue Count Month 6", "Integer, 0 for new clients"),
+    }
+
+    SAMPLE_ROWS = [
+        ["Graduate",    150000, 12,  "Owned",    "Finance",       "Personal Loan", 12, 6,  100, 100, 0.15, 0.10, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["University",   32000,  2,  "Rented",   "Retail",        "Credit Card",   36, 12, 235, 235, 0.45, 0.30, 1, 0, 0, 0, 0, 0, 0, 0],
+        ["High School",  28000,  0.5,"Family",   "Others",        "Personal Loan", 60, 3,  400, 405, 0.65, 0.40, 2, 1, 1, 1, 0, 0, 0, 0],
+        ["University",   85000,  8,  "Mortgage", "Tech",          "Car Loan",      48, 24, 110, 110, 0.25, 0.15, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["Graduate",    120000,  5,  "Owned",    "Tech",          "Personal Loan", 24, 10, 300, 300, 0.35, 0.20, 1, 0, 0, 0, 0, 0, 0, 0],
+        ["High School",  42000,  3,  "Rented",   "Service",       "Credit Card",   12, 2,  800, 802, 0.55, 0.35, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["University",   30000,  1,  "Family",   "Retail",        "Personal Loan", 36, 1,  900, 900, 0.75, 0.45, 3, 2, 2, 2, 1, 0, 0, 0],
+        ["University",   65000, 12,  "Owned",    "Manufacturing", "Car Loan",      72, 48, 500, 500, 0.20, 0.12, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["High School",  25000,  4,  "Rented",   "Service",       "Personal Loan", 24, 18, 700, 700, 0.40, 0.25, 0, 1, 0, 0, 0, 0, 0, 0],
+        ["Graduate",     95000,  6,  "Mortgage", "Finance",       "Personal Loan", 48, 36, 200, 200, 0.10, 0.08, 0, 0, 0, 0, 0, 0, 0, 0],
+    ]
+
+    wb = openpyxl.Workbook()
+
+    # ────────────────────────────────────────────────
+    # Sheet 1: 填寫範例 / Sample Data
+    # ────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = "填寫範例" if is_zh else "Sample Data"
+
+    navy_fill   = PatternFill("solid", fgColor="1A3A6C")
+    orange_fill = PatternFill("solid", fgColor="E65100")
+    yellow_fill = PatternFill("solid", fgColor="FFF3E0")
+    white_font  = Font(bold=True, color="FFFFFF", size=10)
+    thin_side   = Side(style="thin", color="DDDDDD")
+    thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+    center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    desc_map = ZH_DESC if is_zh else EN_DESC
+
+    for c_idx, col in enumerate(TEMPLATE_COLS, 1):
+        cell = ws1.cell(row=1, column=c_idx, value=col)
+        cell.fill = navy_fill if col in REQUIRED_SET else orange_fill
+        cell.font = white_font
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    for r_idx, row_data in enumerate(SAMPLE_ROWS, 2):
+        for c_idx, val in enumerate(row_data, 1):
+            cell = ws1.cell(row=r_idx, column=c_idx, value=val)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = thin_border
+            if r_idx % 2 == 0:
+                cell.fill = PatternFill("solid", fgColor="F9FAFB")
+
+    for c_idx, col in enumerate(TEMPLATE_COLS, 1):
+        max_len = max(
+            len(str(ws1.cell(row=r, column=c_idx).value or ""))
+            for r in range(1, len(SAMPLE_ROWS) + 2)
+        )
+        ws1.column_dimensions[get_column_letter(c_idx)].width = min(max_len + 3, 32)
+    ws1.row_dimensions[1].height = 36
+
+    # Legend note
+    note_row = len(SAMPLE_ROWS) + 3
+    ws1.merge_cells(start_row=note_row, start_column=1, end_row=note_row, end_column=len(TEMPLATE_COLS))
+    note_cell = ws1.cell(row=note_row, column=1)
+    if is_zh:
+        note_cell.value = "■ 深藍欄位 = 必填（缺少將無法預測）　■ 橘色欄位 = 選填（缺少自動補 0，但影響準確度）　■ 逾期欄位對模型貢獻 >80%，回頭客請務必填寫"
+    else:
+        note_cell.value = "■ Navy = Required (prediction will fail without these)   ■ Orange = Optional (defaults to 0 if missing, affects accuracy)   ■ Overdue fields contribute >80% to model accuracy — always fill for returning clients"
+    note_cell.font = Font(italic=True, size=9, color="555555")
+    note_cell.alignment = Alignment(wrap_text=True)
+
+    # ────────────────────────────────────────────────
+    # Sheet 2: 欄位說明 / Field Guide
+    # ────────────────────────────────────────────────
+    ws2 = wb.create_sheet("欄位說明" if is_zh else "Field Guide")
+
+    guide_headers = (
+        ["欄位名稱（系統用）", "中文名稱", "說明 / 範例值", "必填？"] if is_zh
+        else ["Column Name (system)", "Display Name", "Description / Sample Values", "Required?"]
+    )
+    for c_idx, h in enumerate(guide_headers, 1):
+        cell = ws2.cell(row=1, column=c_idx, value=h)
+        cell.fill = navy_fill
+        cell.font = white_font
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    for r_idx, col in enumerate(TEMPLATE_COLS, 2):
+        disp_name, desc_val = desc_map[col]
+        req_label = ("✔ 必填" if is_zh else "✔ Required") if col in REQUIRED_SET else ("選填" if is_zh else "Optional")
+        row_vals = [col, disp_name, desc_val, req_label]
+        req_color = "FFF3E0" if col not in REQUIRED_SET else "E8F0FE"
+        for c_idx, val in enumerate(row_vals, 1):
+            cell = ws2.cell(row=r_idx, column=c_idx, value=val)
+            cell.fill = PatternFill("solid", fgColor=req_color)
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical="center", wrap_text=True)
+
+    ws2.column_dimensions["A"].width = 52
+    ws2.column_dimensions["B"].width = 22
+    ws2.column_dimensions["C"].width = 40
+    ws2.column_dimensions["D"].width = 12
+    ws2.row_dimensions[1].height = 28
+
+    # ── Return response ──
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    filename = "DPM_批次預測範本.xlsx" if is_zh else "DPM_Batch_Template.xlsx"
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response

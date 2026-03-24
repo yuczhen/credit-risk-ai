@@ -12,4 +12,5 @@ urlpatterns = [
     path("download/csv/", views.download_csv, name="download_csv"),
     path("download/excel/", views.download_excel, name="download_excel"),
     path("download/batch/", views.download_batch_result, name="download_batch_result"),
+    path("download/template/", views.download_template, name="download_template"),
 ]
