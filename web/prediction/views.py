@@ -86,14 +86,16 @@ NTD_TO_USD = 0.031  # approximate NTD→USD conversion rate
 # ─────────────────────────────────────────────────────────────
 EN_TO_ZH = {
     # education
-    "Grad+": "研究所以上", "Master": "碩士", "College/Univ": "專科/大學",
-    "University": "大學", "College": "專科", "HS/Voc": "高中/職",
-    "High School": "高中", "Elementary": "小學", "Other": "其他",
+    "Grad+": "研究所以上", "Graduate": "研究所以上", "Master": "碩士",
+    "College/Univ": "專科/大學", "University": "大學", "College": "專科",
+    "HS/Voc": "高中/職", "High School": "高中", "Elementary": "小學",
+    "Other": "其他", "Others": "其他",
     # residence status
     "Owned": "自有", "Rented": "租屋", "Spouse": "配偶",
     "Family": "親屬", "Dormitory": "宿舍",
     # main business
-    "Manufacturing": "製造業", "Services": "服務業", "Commerce": "商業",
+    "Manufacturing": "製造業", "Services": "服務業", "Service": "服務業",
+    "Commerce": "商業", "Retail": "商業",
     "Tech": "科技業", "Finance": "金融業", "Insurance": "保險業",
     "Securities": "證券及期貨業", "Gov/Education": "公教人員", "Military": "軍人",
     "F&B": "餐飲業", "Transport": "運輸業", "Construction": "營造業",
@@ -104,6 +106,7 @@ EN_TO_ZH = {
     "Social/Personal": "社會團體即個人服務",
     # product
     "Beauty": "瘦身美容", "3C/Appliance": "3C家電", "Personal": "個人用品",
+    "Personal Items": "個人用品",
 }
 
 # Chinese → English translation for model output values
@@ -440,6 +443,39 @@ def upload_predict(request):
     for col in EN_CATEGORICAL_COLS:
         if col in df.columns:
             df[col] = df[col].map(lambda v: EN_TO_ZH.get(str(v).strip(), v) if pd.notna(v) else v)
+
+    # Validate categorical values — catch unmapped values before model crashes
+    VALID_ZH_VALUES = {
+        "education":        set(v for _, v in EN_TO_ZH.items() if _ in ["Grad+","Graduate","Master","College/Univ","University","College","HS/Voc","High School","Elementary","Other","Others"]),
+        "residence status": {"自有", "租屋", "配偶", "親屬", "宿舍"},
+        "main business":    {v for k, v in EN_TO_ZH.items() if k in ["Manufacturing","Services","Service","Commerce","Retail","Tech","Finance","Insurance","Securities","Gov/Education","Military","F&B","Transport","Construction","Real Estate","Warehousing","Telecom","Utilities","Agriculture","Fishery","Mining","Professional","Freelance","E-commerce","Student","Homemaker","Social/Personal","Other","Others"]},
+        "product":          {"瘦身美容", "3C家電", "個人用品", "其他"},
+    }
+    invalid_rows = {}
+    for col, valid_set in VALID_ZH_VALUES.items():
+        if col in df.columns:
+            bad_mask = df[col].apply(lambda v: pd.notna(v) and str(v).strip() not in valid_set)
+            bad_vals = df.loc[bad_mask, col].unique().tolist()
+            if bad_vals:
+                invalid_rows[col] = bad_vals
+    if invalid_rows:
+        bullet = "\n".join(f"  • {col}：{vals}" for col, vals in invalid_rows.items())
+        if lang == "en":
+            err = (
+                f"⚠ Upload failed — unrecognised categorical values found:\n{bullet}\n\n"
+                f"Please check the template for valid values."
+            )
+        else:
+            err = (
+                f"⚠ 上傳失敗 — 以下欄位包含不合法的分類值：\n{bullet}\n\n"
+                f"請參考範本中的合法選項後重新上傳。"
+            )
+        return render(request, "prediction/prediction_page.html", {
+            "form": PredictionForm(),
+            "result_json": "null",
+            "error_msg": err,
+            "session_lang": lang,
+        })
 
     # Convert USD → NTD for English users (model expects NTD)
     if lang == "en" and "month salary" in df.columns:
@@ -869,12 +905,12 @@ def download_template(request):
     }
 
     EN_DESC = {
-        "education":                                              ("Education Level", "Graduate / University / High School"),
+        "education":                                              ("Education Level", "Graduate / Master / University / High School / Other"),
         "month salary":                                           ("Monthly Salary", "Number, e.g. 50000"),
         "job tenure":                                             ("Job Tenure (yrs)", "Number, e.g. 3.5"),
-        "residence status":                                       ("Residence Status", "Owned / Rented / Family / Mortgage"),
-        "main business":                                          ("Industry", "Finance / Retail / Tech / Manufacturing / Service / Others"),
-        "product":                                                ("Loan Purpose", "Personal Loan / Credit Card / Car Loan"),
+        "residence status":                                       ("Residence Status", "Owned / Rented / Family / Spouse / Dormitory"),
+        "main business":                                          ("Industry", "Finance / Tech / Manufacturing / Services / Commerce / Others"),
+        "product":                                                ("Loan Purpose", "Personal / Beauty / 3C/Appliance / Others"),
         "loan term":                                              ("Loan Term (months)", "Integer, e.g. 24"),
         "paid installments":                                      ("Paid Installments", "Integer, e.g. 6"),
         "post code of permanent address":                         ("Perm. Address Postal Code", "Number, e.g. 100"),
@@ -892,16 +928,16 @@ def download_template(request):
     }
 
     SAMPLE_ROWS = [
-        ["Graduate",    150000, 12,  "Owned",    "Finance",       "Personal Loan", 12, 6,  100, 100, 0.15, 0.10, 0, 0, 0, 0, 0, 0, 0, 0],
-        ["University",   32000,  2,  "Rented",   "Retail",        "Credit Card",   36, 12, 235, 235, 0.45, 0.30, 1, 0, 0, 0, 0, 0, 0, 0],
-        ["High School",  28000,  0.5,"Family",   "Others",        "Personal Loan", 60, 3,  400, 405, 0.65, 0.40, 2, 1, 1, 1, 0, 0, 0, 0],
-        ["University",   85000,  8,  "Mortgage", "Tech",          "Car Loan",      48, 24, 110, 110, 0.25, 0.15, 0, 0, 0, 0, 0, 0, 0, 0],
-        ["Graduate",    120000,  5,  "Owned",    "Tech",          "Personal Loan", 24, 10, 300, 300, 0.35, 0.20, 1, 0, 0, 0, 0, 0, 0, 0],
-        ["High School",  42000,  3,  "Rented",   "Service",       "Credit Card",   12, 2,  800, 802, 0.55, 0.35, 0, 0, 0, 0, 0, 0, 0, 0],
-        ["University",   30000,  1,  "Family",   "Retail",        "Personal Loan", 36, 1,  900, 900, 0.75, 0.45, 3, 2, 2, 2, 1, 0, 0, 0],
-        ["University",   65000, 12,  "Owned",    "Manufacturing", "Car Loan",      72, 48, 500, 500, 0.20, 0.12, 0, 0, 0, 0, 0, 0, 0, 0],
-        ["High School",  25000,  4,  "Rented",   "Service",       "Personal Loan", 24, 18, 700, 700, 0.40, 0.25, 0, 1, 0, 0, 0, 0, 0, 0],
-        ["Graduate",     95000,  6,  "Mortgage", "Finance",       "Personal Loan", 48, 36, 200, 200, 0.10, 0.08, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["Graduate",     150000, 12,  "Owned",    "Finance",       "Personal",     12, 6,  100, 100, 0.15, 0.10, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["University",    32000,  2,  "Rented",   "Commerce",      "Beauty",        36, 12, 235, 235, 0.45, 0.30, 1, 0, 0, 0, 0, 0, 0, 0],
+        ["High School",   28000,  0.5,"Family",   "Others",        "Personal",      60, 3,  400, 405, 0.65, 0.40, 2, 1, 1, 1, 0, 0, 0, 0],
+        ["University",    85000,  8,  "Owned",    "Tech",          "3C/Appliance",  48, 24, 110, 110, 0.25, 0.15, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["Graduate",     120000,  5,  "Owned",    "Tech",          "Personal",      24, 10, 300, 300, 0.35, 0.20, 1, 0, 0, 0, 0, 0, 0, 0],
+        ["High School",   42000,  3,  "Rented",   "Services",      "Beauty",        12, 2,  800, 802, 0.55, 0.35, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["University",    30000,  1,  "Family",   "Commerce",      "Personal",      36, 1,  900, 900, 0.75, 0.45, 3, 2, 2, 2, 1, 0, 0, 0],
+        ["University",    65000, 12,  "Owned",    "Manufacturing", "3C/Appliance",  72, 48, 500, 500, 0.20, 0.12, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["High School",   25000,  4,  "Rented",   "Services",      "Personal",      24, 18, 700, 700, 0.40, 0.25, 0, 1, 0, 0, 0, 0, 0, 0],
+        ["Graduate",      95000,  6,  "Spouse",   "Finance",       "Beauty",        48, 36, 200, 200, 0.10, 0.08, 0, 0, 0, 0, 0, 0, 0, 0],
     ]
 
     wb = openpyxl.Workbook()
