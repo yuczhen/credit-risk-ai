@@ -920,6 +920,7 @@ def download_template(request):
 
     desc_map = ZH_DESC if is_zh else EN_DESC
 
+    # Row 1: English column names (system-required)
     for c_idx, col in enumerate(TEMPLATE_COLS, 1):
         cell = ws1.cell(row=1, column=c_idx, value=col)
         cell.fill = navy_fill if col in REQUIRED_SET else orange_fill
@@ -927,7 +928,22 @@ def download_template(request):
         cell.alignment = center_align
         cell.border = thin_border
 
-    for r_idx, row_data in enumerate(SAMPLE_ROWS, 2):
+    # Row 2 (ZH only): Chinese label hints
+    data_start_row = 2
+    if is_zh:
+        zh_hint_fill = PatternFill("solid", fgColor="EBF3FB")
+        zh_hint_font = Font(size=9, color="1A3A6C", italic=True)
+        for c_idx, col in enumerate(TEMPLATE_COLS, 1):
+            zh_name, _ = ZH_DESC[col]
+            cell = ws1.cell(row=2, column=c_idx, value=zh_name)
+            cell.fill = zh_hint_fill
+            cell.font = zh_hint_font
+            cell.alignment = center_align
+            cell.border = thin_border
+        ws1.row_dimensions[2].height = 20
+        data_start_row = 3
+
+    for r_idx, row_data in enumerate(SAMPLE_ROWS, data_start_row):
         for c_idx, val in enumerate(row_data, 1):
             cell = ws1.cell(row=r_idx, column=c_idx, value=val)
             cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -938,7 +954,7 @@ def download_template(request):
     for c_idx, col in enumerate(TEMPLATE_COLS, 1):
         max_len = max(
             len(str(ws1.cell(row=r, column=c_idx).value or ""))
-            for r in range(1, len(SAMPLE_ROWS) + 2)
+            for r in range(1, data_start_row + len(SAMPLE_ROWS))
         )
         ws1.column_dimensions[get_column_letter(c_idx)].width = min(max_len + 3, 32)
     ws1.row_dimensions[1].height = 36
@@ -992,10 +1008,12 @@ def download_template(request):
     wb.save(buffer)
     buffer.seek(0)
 
-    filename = "DPM_批次預測範本.xlsx" if is_zh else "DPM_Batch_Template.xlsx"
+    from urllib.parse import quote
+    filename = "預測範本.xlsx" if is_zh else "Prediction_Template.xlsx"
+    encoded  = quote(filename)
     response = HttpResponse(
         buffer.getvalue(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Content-Disposition"] = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{encoded}"
     return response
