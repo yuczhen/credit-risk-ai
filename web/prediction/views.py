@@ -258,7 +258,11 @@ def login_view(request):
 
 def logout_view(request):
     """登出並清除 session。"""
-    request.session.flush()
+    try:
+        request.session.flush()
+    except Exception:
+        request.session.clear()
+        request.session.cycle_key()
     return redirect("prediction:login")
 
 
