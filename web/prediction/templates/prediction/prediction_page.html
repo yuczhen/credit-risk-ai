@@ -215,6 +215,12 @@
                 </svg>
                 <span data-i18n="btn.upload">上傳報表（批次預測）</span>
               </button>
+              <a id="tmplBtn" href="{% url 'prediction:download_template' %}?lang={{ session_lang|default:'zh' }}"
+                 class="px-4 py-2.5 bg-white border border-blue-200 hover:bg-blue-50 text-blue-600 font-medium rounded-xl transition-colors text-sm flex items-center gap-1.5"
+                 download>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <span data-i18n="btn.template">下載範本</span>
+              </a>
             </div>
           </div>
         </form>
@@ -595,6 +601,7 @@
         "modal.field_info": "欄位說明（點擊展開）",
         "modal.required": "必填欄位（缺少將無法預測）：",
         "modal.optional": "選填欄位（缺少時預設為 0，但會影響準確度）：",
+        "btn.template": "下載範本",
         "modal.tip1": "下載範本：",
         "modal.tmpl_zh": "中文範本",
         "modal.tmpl_en": "EN Template",
@@ -672,6 +679,7 @@
         "modal.field_info": "Field descriptions (click to expand)",
         "modal.required": "Required fields (prediction will fail without these):",
         "modal.optional": "Optional fields (defaults to 0 if missing, affects accuracy):",
+        "btn.template": "Download Template",
         "modal.tip1": "Download Template:",
         "modal.tmpl_zh": "ZH Template",
         "modal.tmpl_en": "EN Template",
@@ -878,6 +886,9 @@
       applyLang(newLang);
       document.getElementById("uploadLang").value = newLang;
       document.getElementById("predictLang").value = newLang;
+      // Sync template download button lang param
+      const tmplBtn = document.getElementById("tmplBtn");
+      if (tmplBtn) tmplBtn.href = tmplBtn.href.replace(/lang=\w+/, "lang=" + newLang);
     });
 
     // Apply language on page load and sync localStorage
