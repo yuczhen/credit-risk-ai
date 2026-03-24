@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>DPM — 信用違約預測系統 | 專業風險評估 Demo</title>
+  <meta name="description" content="基於 Stacking 模型架構的高精度信用違約預測系統，提供單筆與批次風險分析報表。" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="DPM — 信用違約預測系統 | 專業風險評估 Demo" />
+  <meta property="og:description" content="基於 Stacking 模型架構的高精度信用違約預測系統，提供單筆與批次風險分析報表。" />
+  <meta property="og:type" content="website" />
+
+  <!-- Favicon: 金融盾牌圖示 (Base64 SVG) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMWEzYTZjIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzI1NjZhZCIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHBhdGggZD0iTTMyIDRMMTAgMTJ2MjBjMCAxMi40IDkuMyAyMy45IDIyIDI4IDEyLjctNC4xIDIyLTE1LjYgMjItMjhWMTJ6IiBmaWxsPSJ1cmwoI2cpIi8+CiAgPHBhdGggZD0iTTI0IDMyIGw1IDUgMTEtMTIiIHN0cm9rZT0iI2ZmZCIgc3Ryb2tlLXdpZHRoPSIzLjUiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDx0ZXh0IHg9IjMyIiB5PSI1NiIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOSIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiNmZmQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkRQTTwvdGV4dD4KPC9zdmc+" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #0d1b2e;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* ── Loading Overlay ── */
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0d1b2e;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    #loader.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+    .logo-icon {
+      width: 48px; height: 48px;
+    }
+    .logo-text {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #e8edf5;
+      letter-spacing: 0.08em;
+    }
+    .logo-sub {
+      font-size: 0.75rem;
+      color: #7a9cc4;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Progress bar */
+    .progress-track {
+      width: 220px;
+      height: 3px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #2566ad, #4fa3e0);
+      border-radius: 99px;
+      animation: fill 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    @keyframes fill {
+      0%   { width: 0%; }
+      60%  { width: 75%; }
+      80%  { width: 88%; }
+      100% { width: 97%; }
+    }
+
+    /* Spinner dots */
+    .dots {
+      display: flex; gap: 6px;
+    }
+    .dots span {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #4fa3e0;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40%            { transform: scale(1);   opacity: 1;   }
+    }
+
+    .load-hint {
+      margin-top: 14px;
+      font-size: 0.72rem;
+      color: #4a6a8a;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Iframe ── */
+    #frame {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loader">
+    <div class="logo-wrap">
+      <svg class="logo-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1a3a6c"/>
+            <stop offset="100%" stop-color="#2566ad"/>
+          </linearGradient>
+        </defs>
+        <path d="M32 4L10 12v20c0 12.4 9.3 23.9 22 28 12.7-4.1 22-15.6 22-28V12z" fill="url(#lg)"/>
+        <path d="M24 32 l5 5 11-12" stroke="#ffd" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="32" y="56" font-family="Arial,sans-serif" font-size="9" font-weight="bold" fill="#ffd" text-anchor="middle">DPM</text>
+      </svg>
+      <div>
+        <div class="logo-text">DPM</div>
+        <div class="logo-sub">Credit Default Predictor</div>
+      </div>
+    </div>
+
+    <div class="progress-track">
+      <div class="progress-bar"></div>
+    </div>
+
+    <div class="dots">
+      <span></span><span></span><span></span>
+    </div>
+    <p class="load-hint">正在連接風險評估引擎…</p>
+  </div>
+
+  <!-- Full-screen Iframe -->
+  <iframe
+    id="frame"
+    src="https://celtic29-yc-default-predictor.hf.space/login/"
+    title="DPM 信用違約預測系統"
+    allow="forms; scripts; same-origin"
+    loading="eager"
+  ></iframe>
+
+  <script>
+    const loader = document.getElementById('loader');
+    const frame  = document.getElementById('frame');
+
+    // Hide loader once iframe fires load event
+    frame.addEventListener('load', () => {
+      // Small delay so the progress bar visually "completes"
+      setTimeout(() => loader.classList.add('hidden'), 400);
+    });
+
+    // Fallback: force-hide after 8 s in case load event never fires (cross-origin block)
+    setTimeout(() => loader.classList.add('hidden'), 8000);
+  </script>
+
+</body>
+</html>
