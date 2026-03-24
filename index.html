@@ -196,6 +196,9 @@
     const countEl = document.getElementById('count');
     let n = 3;
 
+    // Wake up HF Space immediately in the background
+    fetch(TARGET, { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+
     const tick = setInterval(() => {
       n--;
       countEl.textContent = n;
